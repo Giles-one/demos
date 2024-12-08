@@ -1,0 +1,35 @@
+#!/bin/busybox sh
+
+PATH=/bin
+for cmd in $(/bin/busybox --list); do
+	/bin/busybox ln -s /bin/busybox /bin/$cmd
+done
+
+[ -d dev  ] || mkdir dev  && mount -t devtmpfs udev /dev
+[ -d tmp  ] || mkdir tmp  && mount -t tmpfs    none /proc
+[ -d proc ] || mkdir proc && mount -t proc     none /proc
+[ -d sys  ] || mkdir sys  && mount -t sysfs    none /sys
+
+insmod /e1000.ko
+ip link set dev lo up
+ip addr add 127.0.0.1/8 dev lp
+
+NIC=eth0
+ip link set dev $NIC up
+ip addr add 10.0.2.15/24 dev $NIC
+ip route add default via 10.0.2.2 dev $NIC
+
+echo ==== exit the shell to switch new root ====
+PS1="(initramfs) " /bin/sh
+
+BD=/dev/sda
+ROOT=/root
+
+mount -o rw $BD $ROOT
+
+for DIR in dev proc sys; do
+	mount -n -o move /$DIR $ROOT/$DIR
+done
+PS1="(linux) " exec switch_root -c /dev/console /root /bin/sh
+
+
